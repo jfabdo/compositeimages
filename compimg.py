@@ -16,7 +16,7 @@ class CompImg:
         self.top = self.limit // 10
         self.min = 100
         self.divthresh = 30000
-        self.noisethreshold = 15
+        self.noisethresh = 15
         self.groomamount = 34
         if image:
             self.addpic(image)
@@ -56,8 +56,8 @@ class CompImg:
 
     def processpic(self, image):
         self.timelapses = self.taketimelapses(self.timelapses, image)
-        self.groomtimelapses()
         self.currentcomposite = self.makecomposite(self.timelapses)
+        self.groomtimelapses()
 
     def checkdepth(self, pic):
         counter = 0
@@ -83,19 +83,24 @@ class CompImg:
     def groomtimelapses(self, groomval=None):
         if groomval == None:
             groomval = self.timelapses
-
         if len(groomval) < 100:
             return groomval
-
+        counter = 0
         for i in groomval[:len(groomval) - 100]:
-            np.where(groomval > 50)
+            if len(i[np.where(self.absdiff(i) > self.noisethresh)]) > self.divthresh:
+                counter += 1
+            else:
+                break
             # if len(groomval) > len(self.avglimit):
             # trimlength = len(groomval) - self.avglimit
             # if trimlength > 0:
             #     groomval = groomval[trimlength:]
+        if groomval is self.timelapses:
+            self.timelapses = self.timelapses[counter:]
+            return self.timelapses
+        groomval = groomval[counter:]
         return groomval
 
-    # TODO: Fix so that once a value is clearly the most, it stops checking that pixel
     def makecomposite(self, timelapse=None):
         if timelapse is None:
             if self.timelapses is None:
@@ -121,7 +126,7 @@ class CompImg:
             interval = int(len(timelapse) ** .5) * 4
             for y in range(x + 1, min(x + 50, x + interval, timelapse.shape[0])):
                 diffs.append(np.array(np.where(cv2.absdiff(
-                    timelapse[x], timelapse[y]) > self.noisethreshold)))
+                    timelapse[x], timelapse[y]) > self.noisethresh)))
                 for i in [x, y]:
                     if i in diffaddress:
                         diffaddress[i].append(len(diffs) - 1)
@@ -149,7 +154,7 @@ class CompImg:
         # tldiffs = [diffs[x] for x in diffaddress[timelapseorder[0]]]
         for g in timelapseorder[:1]:
             diff = cv2.absdiff(timelapse[g], composite)
-            diffpoints = np.where(diff > self.noisethreshold)
+            diffpoints = np.where(diff > self.noisethresh)
             diffpntsarray = np.array(
                 list(zip(diffpoints[0], diffpoints[1], diffpoints[2])), dtype='uint64')
             completedarray = np.array(completed, dtype='uint64')
